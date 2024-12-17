@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
+  </head>
+  <body class="container">
+
+    <h1><%= title %></h1>
+    <p><%- content%></p>
+
+    <form method="post" action="/users/enter">
+        <div class="form-group">
+            <label for="name">ユーザーネーム</label>
+            <input type="text" name="name" id="name" class="form-control" value=<%=form.name%>>
+        </div>
+        <div class="form-group">
+            <label for="pass">パスワード</label>
+            <input type="text" name="pass" id="pass" class="form-control" value=<%=form.pass%>>
+        </div>
+        <button type="submit" name="action" value="login" class="btn btn-primary">ログイン</button>
+        <button type="submit" name="action" value="add" class="btn btn-secondary">新規登録</button>
+    </form>
+    
+
+  </body>
+</html>
