@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "nodemon ./bin/www"
+    "start": "nodemon ./bin/www",
+    "pm2-start": "./node_modules/.bin/pm2-runtime start ./bin/www",
+    "pm2-stop": "./node_modules/.bin/pm2-runtime stop ./bin/www",
+    "docker": "docker compose up --build"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
@@ -14,6 +17,8 @@
     "express-validator": "^7.2.0",
     "http-errors": "~1.6.3",
     "morgan": "~1.9.1",
+    "nodemon": "^3.1.9",
+    "pm2": "^5.4.3",
     "sqlite3": "^5.1.7",
     "ws": "^8.18.0"
   }

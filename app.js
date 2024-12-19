@@ -34,7 +34,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 // /helloにアクセスしたときにroutes/hello.jsを読み込む
-app.use('/hello', helloRouter);
+//helloはユーザーによるsql操作を含むため非公開
+//app.use('/hello', helloRouter);
 app.use('/game', gameRouter);
 app.use('/boards', boardsRouter);
 
