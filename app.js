@@ -9,6 +9,8 @@ var usersRouter = require('./routes/users');
 var helloRouter = require('./routes/hello');
 var gameRouter = require('./routes/game');
 var boardsRouter = require('./routes/boards');
+var gomokuRouter = require('./routes/gomoku');
+var imageRouter = require('./routes/image');
 const session=require('express-session');
 
 var app = express();
@@ -37,7 +39,9 @@ app.use('/users', usersRouter);
 //helloはユーザーによるsql操作を含むため非公開
 //app.use('/hello', helloRouter);
 app.use('/game', gameRouter);
+app.use('/gomoku', gomokuRouter);
 app.use('/boards', boardsRouter);
+app.use('/image', imageRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

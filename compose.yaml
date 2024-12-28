@@ -19,4 +19,4 @@ services:
     ports:
       - 4040:4040
     volumes:
-      - ./ngrok.yaml:/etc/ngrok.yaml
+      - ./private/ngrok.yaml:/etc/ngrok.yaml
