@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-var WebSocket = require('ws');
+//var WebSocket = require('ws');
 
 const sqlite3 = require('sqlite3');
 const { check, validationResult } = require('express-validator');
@@ -167,7 +167,7 @@ router.post('/find', (req, res, next) => {
         });
     });
 });
-
+/*
 //websocketの接続テスト
 const server = new WebSocket.Server({ port: 3001 });
 server.on('connection', (ws) => {
@@ -177,6 +177,6 @@ server.on('connection', (ws) => {
     });
     console.log('WebSocket server running on ws://localhost:3001');
 })
-
+*/
 
 module.exports = router;

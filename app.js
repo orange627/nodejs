@@ -4,6 +4,7 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
+
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var helloRouter = require('./routes/hello');
@@ -11,7 +12,7 @@ var gameRouter = require('./routes/game');
 var boardsRouter = require('./routes/boards');
 var gomokuRouter = require('./routes/gomoku');
 var imageRouter = require('./routes/image');
-const session=require('express-session');
+const session = require('express-session');
 
 var app = express();
 
@@ -19,11 +20,11 @@ var app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-var session_opt={
+var session_opt = {
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: false,
-  cookie: {maxAge: 60*60*1000}
+  cookie: { maxAge: 60 * 60 * 1000 }
 }
 app.use(session(session_opt));
 
@@ -38,18 +39,18 @@ app.use('/users', usersRouter);
 // /helloにアクセスしたときにroutes/hello.jsを読み込む
 //helloはユーザーによるsql操作を含むため非公開
 //app.use('/hello', helloRouter);
-app.use('/game', gameRouter);
+//app.use('/game', gameRouter);
 app.use('/gomoku', gomokuRouter);
 app.use('/boards', boardsRouter);
 app.use('/image', imageRouter);
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};

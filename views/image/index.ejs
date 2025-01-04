@@ -1,12 +1,62 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <title>Image</title>
-  </head>
-  <body>
-    <p>画像を一括ダウンロードできるサイトです。</p>
-    <input name='getUrl'>
 
-  </body>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Image</title>
+</head>
+
+<body>
+  <p>画像を一括ダウンロード・管理できるサイトです。</p>
+  <p>数値を変える部分は{num}と表記してください。</p>
+
+  <form id="imageForm">
+    <div class="form-group">
+      <label for="getUrl">URL</label>
+      <input type="text" style="width:50%;" name="getUrl" id="getUrl" value="https://example.com#{num}"><br>
+      <br>
+      <label for="valFlag">変数利用</label>
+      <select name="valFlag" id="valFlag">
+        <option value="OFF">OFF</option>
+        <option value="ON">ON</option>
+      </select><br>
+      <label for="startNum">変数_初期値</label>
+      <input type="number" name="startNum" id="startNum" value="1"><br>
+      <label for="endNum">変数_終了値</label>
+      <input type="number" name="endNum" id="endNum" value="10"><br>
+      <label for="updateTime">更新時間/s</label>
+      <input type="nubmer" name="updateTime" id="updateTime" value="3"><br>
+      <input type="submit" value="送信">
+    </div>
+  </form>
+
+  <%#画像表紙のタイル表示%>
+    <%- include('tile',{folders:content}) %>
+
+</body>
+<script>
+  document.getElementById('imageForm').onsubmit = async function (event) {
+    event.preventDefault();
+    const formData = new FormData(this);
+    const jsonData = {};
+    for (const [key, value] of formData.entries()) {
+      jsonData[key] = value;
+    }
+    try {
+      const response = await fetch('/image/get', {
+        method: 'POST',
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(jsonData)
+      });
+      const responseData = await response.json();
+      console.log("レスポンス", responseData);
+      //window.location.href = '/image/show_sse/' + jsonData["getUrl"];
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+</script>
+
 </html>

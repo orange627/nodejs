@@ -1,0 +1,27 @@
+<% if(folders!=null) {%>
+    <% folders.forEach(folder=>{
+        if(folder!=null){%>
+        <div class="tile">
+            <a href="<%=folder.dir%>">
+                <img src="<%=folder.cover%>" alt="<%=folder.name%>">
+                <p>
+                    <%=folder.name%>
+                </p>
+            </a>
+        </div>
+        <%}%>
+            <%})%>
+                <%}%>
+
+                    <style>
+                        .tile {
+                            display: inline-block;
+                            margin: 10px;
+                            text-align: center;
+                        }
+
+                        img {
+                            width: 150px;
+                            height: auto;
+                        }
+                    </style>

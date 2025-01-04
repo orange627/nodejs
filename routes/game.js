@@ -1,8 +1,8 @@
 var express = require('express');
 var router = express.Router();
 
-var WebSocket = require('ws');
-const wss = new WebSocket.Server({ port:3002 });
+//var WebSocket = require('ws');
+//const wss = new WebSocket.Server({ port: 3002 });
 
 let gameState = {
     ball: { x: 400, y: 300, dx: 3, dy: 3, radius: 10 },
@@ -11,7 +11,7 @@ let gameState = {
         Array.from({ length: 8 }, (_, c) => ({ x: c * 75 + 30, y: r * 25 + 30, visible: true }))
     ),
 };
-
+/*
 wss.on('connection', (ws) => {
     console.log('New client connected');
 
@@ -66,7 +66,7 @@ wss.on('connection', (ws) => {
 
     // クライアントからのパドル操作
     ws.on('message', (message) => {
-        var  {direction}  = JSON.parse(message);
+        var { direction } = JSON.parse(message);
         console.log(direction);
         if (direction === 'left') gameState.paddle.x = Math.max(0, gameState.paddle.x - 10);
         if (direction === 'right') gameState.paddle.x = Math.min(800 - gameState.paddle.width, gameState.paddle.x + 10);
@@ -77,17 +77,17 @@ wss.on('connection', (ws) => {
         clearInterval(interval);
     });
 });
-
+*/
 /* GET home page. */
-router.get('/', function(req, res, next) {
-    var data={
+router.get('/', function (req, res, next) {
+    var data = {
         title: 'game',
         content: 'これはサンプルのコンテンツです。<br>this is sample content.'
     }
     res.render('game', data);
 });
 
-router.get('/hockey',function(req,res,next){
+router.get('/hockey', function (req, res, next) {
     res.render('hockey');
 });
 
