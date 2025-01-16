@@ -8,17 +8,54 @@
   <body class="container">
     <div class="player-info">
         <div class="player">
+            <span id="sente">Player1</span>
             <span>先手<div class="circle black-circle"></div></span>
-            <span>Player1</span>
+            <span id="black-win">0 win</span>
         </div>
         <div class="player">
+            <span id="gote">Player2</span>
             <span>後手<div class="circle white-circle"></div></span>
-            <span>Player2</span>
+            <span id="white-win">0 win</span>
         </div>
+    </div>
+    <div class="board-container">
+    <p>your player name: <%=login.name%></p>
+      <!-- リセットボタン-->
+      <button class="btn btn-primary reset-btn">リセット</button>
+      <!--勝敗など表示-->
+      <div class="message"></div>
+      <%#盤面を作成%>
+      <div class="board">
+        <%
+        const grid=15;
+        const gSize=50;
+        %>
+        <% for (let i = 0; i < grid; i++) { %>
+            <% for (let j = 0; j < grid; j++) { %>
+                <div class="cell" data-row="<%= i %>" data-col="<%= j %>"></div>
+            <% } %>
+        <% } %>
+      </div>
     </div>
 
   </body>
   <style>
+    /*盤面のデザイン*/
+    .board {
+            display: grid;
+            grid-template-columns: repeat(<%=grid%>, <%=gSize%>px);
+            grid-template-rows: repeat(<%=grid%>, <%=gSize%>px);
+            gap: 0px;
+            margin: 0px 0px;
+        }
+    .cell {
+            background-color: #f0d9b5;
+            border: 1px solid black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /*プレイヤー情報*/
     .player-info {
       display: flex;
       justify-content: flex-end;
@@ -48,8 +85,128 @@
     .black-circle {
       background-color: black;
     }
-  </style>
+    /*勝敗メッセージ*/
+    .message {
+    font-size: 36px;
+    text-align: center;
+    height: 50px;
+  }
+.board-container {
+    position: relative;
+    display: inline-block;
+}
+.reset-btn {
+    display: none;
+}
+</style>
   <script>
-  
+    //サーバーから非同期のfetchでルーム情報を受け取る
+    async function getRoomInfo() {
+      const response = await fetch("/gomoku/<%=room.name%>/info");
+      const data = await response.json();
+      return data;
+    }
+    let currentPlayer = 'black';
+    let isGameOver = false;
+    //gridのサイズの盤面の2次元配列を用意し、状態を管理
+    //var boardState = Array.from({ length: <%=grid%> }, () => Array(<%=grid%>).fill(null));
+    //再読込されても盤面を維持する
+    document.addEventListener('DOMContentLoaded', async function() {
+      const data=await getRoomInfo();
+      updateBoard(data);
+    });
+  //盤面のセルをクリックしたときの処理
+  document.querySelectorAll('.cell').forEach(cell => {
+    //セルの行と列を取得
+    const row = cell.dataset.row;
+    const col = cell.dataset.col;
+    cell.addEventListener('click', function() {
+      //先手後手代入
+      if(currentPlayer==='black'&&document.getElementById('gote').innerText!=="<%=login.name%>"){
+        document.getElementById('sente').innerText="<%=login.name%>";      
+      }else if(currentPlayer==='white'&&document.getElementById('sente').innerText!=="<%=login.name%>"){
+        document.getElementById('gote').innerText="<%=login.name%>";
+      }
+      //まだ置かれていないところに石を打つ
+        if (!this.innerHTML&&isGameOver===false) {
+          //自分のターンでないときは打てない
+          if((currentPlayer==='black'&&document.getElementById('sente').innerText!=="<%=login.name%>")
+        ||(currentPlayer==='white'&&document.getElementById('gote').innerText!=="<%=login.name%>"))return;
+            //サーバーに打つ石の情報を渡して、盤面の状態を更新
+            fetch('/gomoku/<%=room.name%>/update', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({"row":row,
+                                    "col":col,
+                                    "color":currentPlayer,
+                                    "currentPlayer":currentPlayer,
+                                    "isGameOver":isGameOver,
+                                    "message":document.querySelector('.message').innerText,
+                                    "sente":document.getElementById('sente').innerText,
+                                    "gote":document.getElementById('gote').innerText
+              }),
+            });
+        }
+        });
+  });
+
+//盤面の更新。ここで盤面の状態を元に石を置く
+function updateBoard(data) {
+  //盤面の更新
+  document.querySelectorAll('.cell').forEach((cell, i) => {
+    const row = Math.floor(i / <%=grid%>);
+    const col = i % <%=grid%>;
+    if (data.board[row][col] === 'black'&&cell.innerHTML==='') {
+      const stone = document.createElement('div');
+      stone.classList.add('circle', 'black-circle');
+      cell.appendChild(stone);
+    } else if (data.board[row][col] === 'white'&&cell.innerHTML==='') {
+      const stone = document.createElement('div');
+      stone.classList.add('circle', 'white-circle');
+      cell.appendChild(stone);
+    }else if(data.board[row][col]===null){
+      cell.innerHTML='';
+    }
+    //変数の更新
+    isGameOver=data.isGameOver;
+    document.querySelector('.message').innerText = data.message;
+    currentPlayer=data.currentPlayer;
+    document.getElementById('sente').innerText=data.sente;
+    document.getElementById('gote').innerText=data.gote;
+    //勝負がついたとき
+    if(isGameOver){
+      //リセットボタンを表示
+      document.querySelector('.reset-btn').style.display='block';
+    }else{
+      document.querySelector('.reset-btn').style.display='none';
+    }
+  });
+}
+//リセットボタン
+document.querySelector('.reset-btn').addEventListener('click', function() {
+  fetch('/gomoku/<%=room.name%>/reset', {method: 'POST'});
+});
+
+//ページを離れたとき、ルームから退出
+window.addEventListener('beforeunload', function(event) {
+  const leave_user="<%=login.name%>";
+  fetch("/gomoku/<%= room.name %>/leave", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ "user": leave_user }),
+      keepalive: true // ページがアンロードされた後もリクエストを続行
+    });
+  });
+
+  //SSEで石が置かれたとき相手の碁盤を更新
+  const eventSource = new EventSource('/gomoku/<%=room.name%>/update_sse');
+        eventSource.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            updateBoard(data);
+        };
   </script>
 </html>

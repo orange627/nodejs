@@ -17,7 +17,7 @@
             <button id="scroll-down">FAST</button>
             <div>
                 <label for="scroll-speed">Speed /ms</label>
-                <input type="number" id="scroll-speed" value="10">
+                <input type="number" id="scroll-speed" value="13">
             </div>
             <a href="/image">
                 <button id="back">back</button>
@@ -28,7 +28,8 @@
     <%#画像を縦に表示%>
         <div class="image-container">
             <%for(file of files){%>
-                <img src="<%=file%>" width="720">
+                //heightを指定しないとlazyの効果がない
+                <img src="<%=file%>" width="auto" height="1040" loading = "lazy">
                 <%}%>
         </div>
 
@@ -212,6 +213,8 @@
         const img = document.createElement('img');
         img.src = message.files;
         img.width = 720;
+        img.height = 1040;
+        img.loading = "lazy";
         imageContainer.appendChild(img);
     };
     eventSource.onerror = () => {

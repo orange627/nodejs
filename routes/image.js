@@ -246,12 +246,70 @@ router.get("/show_sse/*", async (req, res, next) => {
     //ファイルが追加されたときEESで送る
     watcher.on('add', (path) => {
         console.log(`File: ${path} has been added`);
-        const rep = path.replace('private\\confidential\\for_image', '\\image\\file');
+        //const rep = path.replace('private\\confidential\\for_image', '\\image\\file');
+        const rep = path.replace(/private[\/\\]confidential[\/\\]for_image/g, '/image/file');
         console.log("置換後のリンク", rep);
         var data = {
             files: rep //取得したレコードデータ
         }
         res.write(`data: ${JSON.stringify(data)}\n\n`);
+    });
+});
+
+//indexにSSEでデータベースのデータを送る
+router.get("/index_sse", async (req, res, next) => {
+    //SSEで送るためのヘッダ設定
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    const watcher = chokidar.watch(imageDir, {
+        ignoreInitial: true, //最初の既存ファイルのイベントは無視
+        persistent: true
+    })
+    //ディレクトリが追加されたときを検知
+    watcher.on('addDir', (path) => {
+        console.log(`Directory: ${path} has been added`);
+        //データベースからディレクトリを検索
+        db.all('select * from image where dir = ?', "./"+path, (err, rows) => {
+            if (!err && rows != null) {
+                //画像アクセス用のリンクに置換
+                const updatedRows = rows.map(row => {
+                    return {
+                        ...row, // 既存のプロパティを保持
+                        dir: row.dir.replace('./private/confidential/for_image', '/image/show'), // dir を置換
+                        cover: row.cover.replace('./private/confidential/for_image', '/image/file')
+                    }
+                });
+                //追加されたディレクトリの情報をSSEで送る
+                res.write(`data: ${JSON.stringify(updatedRows[0])}\n\n`);
+            } else {
+                console.error(err);
+            }
+        });
+    });
+});
+
+//idを受け取りタイルを削除する
+router.post("/delete_tile", async (req, res, next) => {
+    const id = req.body.id;
+    db.serialize(() => {
+        db.get('select * from image where id = ?', id, (err, row) => {
+            if (!err && row != null) {
+                //ディレクトリを削除
+                const dir = row.dir;
+                fs.rm(dir, { recursive: true },(err)=>{
+                    if(err) console.log(err);
+                });
+                //データベースから削除
+                db.run('delete from image where id = ?', id, (err) => {
+                    if (err) console.log(err);
+                });
+                //削除完了を知らせる
+                res.send("削除しました");
+            } else {
+                console.error(err);
+            }
+        });
     });
 });
 

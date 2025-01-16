@@ -1,27 +1,91 @@
+<div id="tile-container">
 <% if(folders!=null) {%>
     <% folders.forEach(folder=>{
         if(folder!=null){%>
         <div class="tile">
             <a href="<%=folder.dir%>">
                 <img src="<%=folder.cover%>" alt="<%=folder.name%>">
-                <p>
-                    <%=folder.name%>
-                </p>
+                <p><%=folder.name%></p>
             </a>
+            <button class="delete-button" data-id="<%=folder.id%>">&times;</button>
         </div>
         <%}%>
             <%})%>
                 <%}%>
+</div>
+<style>
+    .tile {
+        display: inline-block;
+        margin: 10px;
+        text-align: center;
+        position: relative; /*削除ボタンの位置を絶対指定するため*/
+    }
 
-                    <style>
-                        .tile {
-                            display: inline-block;
-                            margin: 10px;
-                            text-align: center;
-                        }
+    img {
+        width: 150px;
+        height: auto;
+    }
+    /*削除ボタン*/
+    .delete-button {
+        position: absolute;
+        top: 0px;
+        right: 15px;
+        background: rgba(128, 128, 128, 0.7);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        display: none;
+        justify-content: center;
+        align-items: center;
+    }
+    /*カーソルがタイルの上にあるときだけ削除ボタンを表示*/
+    .tile:hover .delete-button {
+        display: flex;
+    }
+</style>
+    <script>
+        //SSEでタイルを自動で追加
+        const eventSource = new EventSource('/image/index_sse');
+        eventSource.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            console.log("受け取ったデータ",data);
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.innerHTML = `
+            <a href="${data.dir}">
+                <img src="${data.cover}" alt="${data.name}" loading="lazy">
+                <p>${data.name}</p>
+            </a>
+            <button class="delete-button" data-id="${data.id}">&times;</button>
+            `;
+            //tile-containerの先頭にタイルを追加
+            const tileContainer = document.getElementById('tile-container');
+            tileContainer.insertBefore(tile, tileContainer.firstChild);
+        };
 
-                        img {
-                            width: 150px;
-                            height: auto;
-                        }
-                    </style>
+        //削除ボタンが押されたとき
+        const deleteButtons = document.getElementsByClassName('delete-button');
+        for (const deleteButton of deleteButtons) {
+            deleteButton.onclick = async function () {
+                const id = this.getAttribute('data-id');
+                try {
+                    const response = await fetch('/image/delete_tile', {
+                        method: 'POST',
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ id: id })
+                    });
+                    const responseData = await response.text();
+                    console.log("response:", responseData);
+                    //削除したタイルを非表示にする
+                    this.parentElement.style.display = 'none';
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            };
+        }
+    </script>
