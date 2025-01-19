@@ -8,14 +8,12 @@ class Room{
     constructor(name){
         this.name=name;
         this.players=[];
-        this.state='waiting';
         this.board=Array.from({ length: grid}, () => Array(grid).fill(null));
         this.currentPlayer='black';
         this.isGameOver=false;
         this.message='';
-        this.sente='';
-        this.gote='';
-        this.winCount={};//後で勝利数を追加する
+        this.player_info={};//name-c,name-w,c:color,w:winCount,o:opponentの名前
+        this.chat=[];
     }
     addPlayer(player){
         if (this.players.length < 2) {
@@ -37,11 +35,20 @@ class Room{
             console.log("プレイヤー{"+player+"}を削除しました。");
         }
     }
+    //ルームを3時間後に自動で消すタイマー
+    startDeleteTimer(timer){
+        timer = setTimeout(() => {
+            console.log(`ルーム ${this.name} を削除します`);
+            delete rooms[this.name];
+        }, 3 * 60 * 60 * 1000); // 3時間 (3 * 60 * 60 * 1000ミリ秒)
+    }
 }
 //ルーム情報保管
 const rooms={};
 //update_sse_res保管
 const update_sse_res = {};
+//timerも循環参照を含むからjson出遅れないため別変数で管理
+const deletetimer = {};
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -67,6 +74,8 @@ function check(req,res){
         return false;
     }
 }
+
+
 //ルームでゲーム
 router.get('/:user',(req,res,next)=>{
     //ログインしてなかったらログインページに飛ばす
@@ -78,6 +87,8 @@ router.get('/:user',(req,res,next)=>{
         rooms[user]=new Room(user);
         //ルーム主をリストに追加
         rooms[user].addPlayer(login_user);
+        //ルーム自動削除タイマー起動
+        rooms[user].startDeleteTimer(deletetimer[user]);
     }else{
         //ルームが存在する場合、ルームに入る
         if(!rooms[user].addPlayer(login_user)){
@@ -102,33 +113,27 @@ router.post('/:room/update',(req,res,next)=>{
     const row=req.body.row;
     const col=req.body.col;
     const color=req.body.color;
+    //盤面に石を打つ
     rooms[room].board[row][col]=color;
+
     rooms[room].isGameOver=req.body.isGameOver;
     rooms[room].message=req.body.message;
-    rooms[room].sente=req.body.sente;
-    rooms[room].gote=req.body.gote;
-    //勝敗判定
+    //rooms[room].player_color=req.body.player_color;
+    rooms[room].player_info=req.body.player_info;
+    rooms[room].currentPlayer=req.body.currentPlayer;
+    //勝利数の初期化
+    if(rooms[room].player_info[rooms[room].players[0]+'-w']==null)rooms[room].player_info[rooms[room].players[0]+'-w']=0;
+    if(rooms[room].player_info[rooms[room].players[1]+'-w']==null)rooms[room].player_info[rooms[room].players[1]+'-w']=0;
+    //勝敗判定(手番はすでに次の番になっている)
     if(checkwin(rooms[room].board,row,col)){
         //勝負がついたとき
-        rooms[room].message = rooms[room].currentPlayer === 'black' ? '先手の勝ち' : '後手の勝ち';
         rooms[room].isGameOver=true;
-    }else{
-        //勝負がついてないときは誰のターンか表示
-        if(rooms[room].currentPlayer === 'white'){
-            if(rooms[room].sente===''){
-                rooms[room].message='先手のターンです';
-            }else{
-                rooms[room].message=rooms[room].sente+'のターンです';
-            }
+        if(rooms[room].player_info[rooms[room].players[0]+'-c']==rooms[room].currentPlayer){
+            rooms[room].player_info[rooms[room].players[1]+'-w']++;
         }else{
-            if(rooms[room].gote===''){
-                rooms[room].message='後手のターンです';
-            }else{
-                rooms[room].message=rooms[room].gote+'のターンです';
-            }
+            rooms[room].player_info[rooms[room].players[0]+'-w']++;
         }
     }
-    rooms[room].currentPlayer=req.body.currentPlayer=== 'black' ? 'white' : 'black';
     // SSEでクライアントに更新を送信
     if (update_sse_res[room]) {
         update_sse_res[room].forEach(client => {
@@ -144,9 +149,9 @@ router.post('/:room/reset',(req,res,next)=>{
         rooms[room].board=Array.from({ length: grid}, () => Array(grid).fill(null));
         rooms[room].currentPlayer='black';
         rooms[room].isGameOver=false;
-        rooms[room].message='';
-        rooms[room].sente='';
-        rooms[room].gote='';
+        //rooms[room].player_color=['',''];
+        rooms[room].player_info[rooms[room].players[0]+'-c']='';
+        rooms[room].player_info[rooms[room].players[1]+'-c']='';
         // SSEでクライアントに更新を送信
         if (update_sse_res[room]) {
             update_sse_res[room].forEach(client => {
@@ -156,19 +161,29 @@ router.post('/:room/reset',(req,res,next)=>{
     res.sendStatus(204);
 });
 
+router.use(express.text()); // text/plainデータをパースするためのミドルウェア。beaconを使うために必要。
 //ルームから退出。ルームの削除も
 router.post('/:room/leave',(req,res,next)=>{
     const room=req.params.room;
-    const leave_user=req.body.user;
+    const leave_user=req.body;
     console.log(leave_user+"がルームから退出しました");
     rooms[room].removePlayer(leave_user);
     res.status(204).end();
 });
 
-//ルーム情報を渡す
-router.get('/:room/info',(req,res,next)=>{
+//sseで更新。プレイヤーの入室を伝える。
+router.get('/:room/sse_load',(req,res,next)=>{
     const room=req.params.room;
-    res.json(rooms[room]);
+    //相手プレイヤーの名前情報を参照できるようにする。最初の一手で自分と相手の色を決定するため。
+    rooms[room].player_info[rooms[room].players[0]+'-o']=rooms[room].players[1];
+    rooms[room].player_info[rooms[room].players[1]+'-o']=rooms[room].players[0];
+    // SSEでクライアントに更新を送信
+    if (update_sse_res[room]) {
+        update_sse_res[room].forEach(client => {
+            client.write(`data: ${JSON.stringify(rooms[room])}\n\n`);
+        });
+    }
+    res.status(204).end();
 });
 
 //SSEで碁盤を更新
@@ -187,6 +202,21 @@ router.get("/:room/update_sse", async (req, res, next) => {
     if (update_sse_res[room]&&!update_sse_res[room].includes(res)) {
         update_sse_res[room].push(res);
     }
+});
+
+// チャットメッセージを受け取るエンドポイント
+router.post('/:room/chat', (req, res,next) => {
+    const room = req.params.room;
+    const { user, message } = req.body;
+    console.log(`${user}がメッセージを送信しました: ${message}`);
+    rooms[room].chat.push({"user":user,"message":message});
+    // SSEでクライアントに更新を送信
+    if (update_sse_res[room]) {
+        update_sse_res[room].forEach(client => {
+            client.write(`data: ${JSON.stringify(rooms[room])}\n\n`);
+        });
+    }
+    res.status(204).end();
 });
 
 //勝敗判定

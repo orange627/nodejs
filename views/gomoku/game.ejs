@@ -8,14 +8,14 @@
   <body class="container">
     <div class="player-info">
         <div class="player">
-            <span id="sente">Player1</span>
-            <span>先手<div class="circle black-circle"></div></span>
-            <span id="black-win">0 win</span>
+            <span id="player1">Player1</span>
+            <span id="player1-turn"></span>
+            <span id="player1-win">0 win</span>
         </div>
         <div class="player">
-            <span id="gote">Player2</span>
-            <span>後手<div class="circle white-circle"></div></span>
-            <span id="white-win">0 win</span>
+            <span id="player2">Player2</span>
+            <span id="player2-turn"></span>
+            <span id="player2-win">0 win</span>
         </div>
     </div>
     <div class="board-container">
@@ -36,6 +36,15 @@
             <% } %>
         <% } %>
       </div>
+    </div>
+
+    <!-- チャット欄 -->
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+            <input type="text" id="chatInput" for="sendButton" placeholder="メッセージを入力">
+            <button id="sendButton">送信</button>
+        </div>
     </div>
 
   </body>
@@ -67,6 +76,7 @@
       margin-right: 30px;
       text-align: right;
       font-size:24px;
+      display: block;
     }
     .player span {
       display: block;
@@ -98,40 +108,56 @@
 .reset-btn {
     display: none;
 }
+.chat-container {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    height: 500px;
+    border: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+}
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+}
 </style>
   <script>
-    //サーバーから非同期のfetchでルーム情報を受け取る
-    async function getRoomInfo() {
-      const response = await fetch("/gomoku/<%=room.name%>/info");
-      const data = await response.json();
-      return data;
-    }
     let currentPlayer = 'black';
     let isGameOver = false;
+    let player_info={};
+    //let player_color=['',''];
+    //let winCount=[0,0];
     //gridのサイズの盤面の2次元配列を用意し、状態を管理
     //var boardState = Array.from({ length: <%=grid%> }, () => Array(<%=grid%>).fill(null));
     //再読込されても盤面を維持する
     document.addEventListener('DOMContentLoaded', async function() {
-      const data=await getRoomInfo();
-      updateBoard(data);
+      //sseで更新。プレイヤーの入室を伝える。
+      await fetch("/gomoku/<%=room.name%>/sse_load");
+      sendChat("ルーム",'<%=login.name%>が入室しました。');
     });
+
   //盤面のセルをクリックしたときの処理
   document.querySelectorAll('.cell').forEach(cell => {
     //セルの行と列を取得
     const row = cell.dataset.row;
     const col = cell.dataset.col;
     cell.addEventListener('click', function() {
-      //先手後手代入
-      if(currentPlayer==='black'&&document.getElementById('gote').innerText!=="<%=login.name%>"){
-        document.getElementById('sente').innerText="<%=login.name%>";      
-      }else if(currentPlayer==='white'&&document.getElementById('sente').innerText!=="<%=login.name%>"){
-        document.getElementById('gote').innerText="<%=login.name%>";
-      }
-      //まだ置かれていないところに石を打つ
+        //まだ置かれていないところに石を打つ
         if (!this.innerHTML&&isGameOver===false) {
-          //自分のターンでないときは打てない
-          if((currentPlayer==='black'&&document.getElementById('sente').innerText!=="<%=login.name%>")
-        ||(currentPlayer==='white'&&document.getElementById('gote').innerText!=="<%=login.name%>"))return;
+            //最初の一手で色を決定する。nullまたは''のときは偽になる。
+            if(!player_info["<%=login.name%>"+'-c']){
+              player_info["<%=login.name%>"+'-c']=currentPlayer;
+              //相手の色
+              player_info[player_info["<%=login.name%>"+'-o']+'-c']=currentPlayer=='black'?'white':'black';
+            }
+            //自分のターンでないときは打てない
+            if(currentPlayer!==player_info["<%=login.name%>"+'-c'])return;
+            //手番を変える
+            currentPlayer=currentPlayer=='black'?'white':'black';
             //サーバーに打つ石の情報を渡して、盤面の状態を更新
             fetch('/gomoku/<%=room.name%>/update', {
               method: 'POST',
@@ -140,12 +166,11 @@
               },
               body: JSON.stringify({"row":row,
                                     "col":col,
-                                    "color":currentPlayer,
-                                    "currentPlayer":currentPlayer,
+                                    "color":currentPlayer=='black'?'white':'black',//置いた色は元の手番
+                                    "currentPlayer":currentPlayer,//次の手番
                                     "isGameOver":isGameOver,
                                     "message":document.querySelector('.message').innerText,
-                                    "sente":document.getElementById('sente').innerText,
-                                    "gote":document.getElementById('gote').innerText
+                                    "player_info":player_info
               }),
             });
         }
@@ -169,44 +194,93 @@ function updateBoard(data) {
     }else if(data.board[row][col]===null){
       cell.innerHTML='';
     }
-    //変数の更新
-    isGameOver=data.isGameOver;
-    document.querySelector('.message').innerText = data.message;
-    currentPlayer=data.currentPlayer;
-    document.getElementById('sente').innerText=data.sente;
-    document.getElementById('gote').innerText=data.gote;
-    //勝負がついたとき
-    if(isGameOver){
-      //リセットボタンを表示
-      document.querySelector('.reset-btn').style.display='block';
-    }else{
-      document.querySelector('.reset-btn').style.display='none';
-    }
   });
+
+  //変数の更新
+  isGameOver=data.isGameOver;
+  document.getElementById('player1').innerText=data.players[0]??'未入室';
+  document.getElementById('player2').innerText=data.players[1]??'未入室';
+  //a??bはaがnullのときb
+  document.getElementById('player1-win').innerText=(data.player_info[data.players[0]+'-w']??'0')+' win';
+  document.getElementById('player2-win').innerText=(data.player_info[data.players[1]+'-w']??'0')+' win';
+  document.getElementById('player1-turn').innerText=data.player_info[data.players[0]+'-c']??'手番';
+  document.getElementById('player2-turn').innerText=data.player_info[data.players[1]+'-c']??'手番';
+  player_info=data.player_info;
+  currentPlayer=data.currentPlayer;
+  //勝負がついたとき
+  if(isGameOver){
+    //リセットボタンを表示
+    document.querySelector('.reset-btn').style.display='block';
+    //勝敗表示
+    if(currentPlayer==data.player_info['<%=login.name%>'+'-c'])document.querySelector('.message').innerText='あなたの負けです';
+    else if(data.player_info['<%=login.name%>'+'-c']!='')document.querySelector('.message').innerText='あなたの勝ちです';
+  }else{
+    //勝負がついていないとき
+    //リセットボタンを非表示
+    document.querySelector('.reset-btn').style.display='none';
+    //手番表示(currentPlayerは次の手番になっている)
+      if(currentPlayer==data.player_info['<%=login.name%>'+'-c'])document.querySelector('.message').innerText='あなたの番です'+(currentPlayer=='black'?'(黒)':'(白)');
+      else if(data.player_info['<%=login.name%>'+'-c'])document.querySelector('.message').innerText='相手の番です';
+      else document.querySelector('.message').innerText='';
+  }
+  //チャット欄更新
+  const chatMessages = document.getElementById('chatMessages');
+  let chatContent=data.chat.map(chat => `<strong>${chat.user}:</strong> ${chat.message}`).join('<br>');
+  chatMessages.innerHTML = chatContent;
+  chatMessages.scrollTop = chatMessages.scrollHeight; // 最新のメッセージにスクロール
+  document.getElementById('chatInput').value = ''; // 入力欄をクリア
 }
+
 //リセットボタン
 document.querySelector('.reset-btn').addEventListener('click', function() {
   fetch('/gomoku/<%=room.name%>/reset', {method: 'POST'});
 });
 
 //ページを離れたとき、ルームから退出
-window.addEventListener('beforeunload', function(event) {
-  const leave_user="<%=login.name%>";
-  fetch("/gomoku/<%= room.name %>/leave", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ "user": leave_user }),
-      keepalive: true // ページがアンロードされた後もリクエストを続行
-    });
-  });
+window.addEventListener('pagehide', (event) => {
+      const leave_user = "<%=login.name%>";
+      const url = "/gomoku/<%= room.name %>/leave";
+      // sendBeaconを使用してリクエストを送信
+      navigator.sendBeacon(url, leave_user);
+      sendChat('ルーム','<%=login.name%>が退出しました。');
+});
 
   //SSEで石が置かれたとき相手の碁盤を更新
   const eventSource = new EventSource('/gomoku/<%=room.name%>/update_sse');
-        eventSource.onmessage = function (event) {
-            const data = JSON.parse(event.data);
-            updateBoard(data);
-        };
+  eventSource.onmessage = function (event) {
+      const data = JSON.parse(event.data);
+      updateBoard(data);
+  };
+  //日本語変換中か検知
+  let isComposing = false;
+  // Enterキーを押したときにメッセージを送信
+  document.getElementById('chatInput').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter'&&!isComposing) {
+        document.getElementById('sendButton').click();
+      }
+  });
+    // 日本語入力の開始と終了を追跡
+    document.getElementById('chatInput').addEventListener('compositionstart', function() {
+        isComposing = true;
+    });
+    document.getElementById('chatInput').addEventListener('compositionend', function() {
+        isComposing = false;
+    });
+  // チャットメッセージの送信
+  document.getElementById('sendButton').addEventListener('click', function() {
+    sendChat("<%=login.name%>",document.getElementById('chatInput').value);
+  });
+  //チャット送信関数
+  function sendChat(user,message){
+        if (message.trim() !== '') {
+            fetch('/gomoku/<%= room.name %>/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ user:user, message: message })
+            })
+        }
+  }
   </script>
 </html>
