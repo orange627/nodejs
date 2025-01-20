@@ -14,9 +14,12 @@ const path = require("path");
 const chokidar = require("chokidar");
 //画像があるディレクトリ
 const imageDir = "./private/confidential/for_image";
-//データベース作成
+
 const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database('./private/confidential/for_image/image.db');
+// プロジェクトのルートディレクトリを基準に絶対パスを作成
+const dbPath = path.join(__dirname, '../private/mydb.db');
+// データベースに接続
+const db = new sqlite3.Database(dbPath);
 db.run(`
     CREATE TABLE IF NOT EXISTS image(
         "id" INTEGER PRIMARY KEY AUTOINCREMENT,

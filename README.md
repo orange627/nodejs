@@ -10,3 +10,5 @@ privateフォルダを用意してngrokのtokenやデータベースをpublicリ
 privateリポジトリのnodejs-privateの方にpushした。
 
 異なるOSで実行する際にはsqliteのバイナリが異なるため、"npm rebuild sqlite3"を実行する必要がある。
+
+自分はraspiにnodejsをインストールしていないため、'docker compose up --build'で実行した。

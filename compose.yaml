@@ -15,7 +15,7 @@ services:
       - "start"
       - "--all"
       - "--config"
-      - "/etc/ngrok.yaml"
+      - "/app/ngrok.yaml"
     ports:
       - 4040:4040
     volumes:

@@ -1,8 +1,12 @@
 var express = require('express');
 var router = express.Router();
 
+const path = require('path');
 const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database('./private/mydb.db');
+// プロジェクトのルートディレクトリを基準に絶対パスを作成
+const dbPath = path.join(__dirname, '../private/mydb.db');
+// データベースに接続
+const db = new sqlite3.Database(dbPath);
 
 db.run(`
   CREATE TABLE IF NOT EXISTS users (
