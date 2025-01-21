@@ -46,7 +46,11 @@
             <button id="sendButton">送信</button>
         </div>
     </div>
-
+    <div class='footer'>
+      <!--ルーム退出ボタン。PCだと自動退出だが、スマホだとうまく退出できないため-->
+      <button id="delete-room">ルーム解散</button>
+    </div>
+    
   </body>
   <style>
     /*盤面のデザイン*/
@@ -95,6 +99,9 @@
     .black-circle {
       background-color: black;
     }
+    .highlight {
+            background-color: yellow; /* 最新の石を置いたマスの色 */
+        }
     /*勝敗メッセージ*/
     .message {
     font-size: 36px;
@@ -123,6 +130,10 @@
     overflow-y: auto;
     padding: 10px;
     border-bottom: 1px solid #ccc;
+}
+.footer{
+  bottom:0;
+  padding-top: 200px;
 }
 </style>
   <script>
@@ -183,6 +194,15 @@ function updateBoard(data) {
   document.querySelectorAll('.cell').forEach((cell, i) => {
     const row = Math.floor(i / <%=grid%>);
     const col = i % <%=grid%>;
+ 
+    //2手前に置かれたセルのハイライト消す
+    if(data.lastCell.row==row&&data.lastCell.col==col){
+      cell.classList.remove('highlight');
+    }
+    //1手前に置かれたセルにハイライト追加
+    if(data.newCell.row==row&&data.newCell.col==col){
+      cell.classList.add('highlight');
+    }
     if (data.board[row][col] === 'black'&&cell.innerHTML==='') {
       const stone = document.createElement('div');
       stone.classList.add('circle', 'black-circle');
@@ -236,6 +256,11 @@ document.querySelector('.reset-btn').addEventListener('click', function() {
   fetch('/gomoku/<%=room.name%>/reset', {method: 'POST'});
 });
 
+//ルーム解散ボタン。スマホだと自動退出されないことがあるためルームを手動で削除。
+document.getElementById("delete-room").addEventListener('click', function() {
+  fetch('/gomoku/<%=room.name%>/delete-room', {method: 'POST'});
+  window.location.href = '/gomoku';
+});
 //ページを離れたとき、ルームから退出
 window.addEventListener('pagehide', (event) => {
       const leave_user = "<%=login.name%>";

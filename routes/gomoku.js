@@ -14,6 +14,8 @@ class Room{
         this.message='';
         this.player_info={};//name-c,name-w,c:color,w:winCount,o:opponentの名前
         this.chat=[];
+        this.lastCell={row:-1,col:-1};
+        this.newCell={row:-1,col:-1};
     }
     addPlayer(player){
         if (this.players.length < 2) {
@@ -115,6 +117,9 @@ router.post('/:room/update',(req,res,next)=>{
     const color=req.body.color;
     //盤面に石を打つ
     rooms[room].board[row][col]=color;
+    //置いた石の場所をハイライトするため保存
+    rooms[room].lastCell = rooms[room].newCell;
+    rooms[room].newCell = { row: row, col: col };
 
     rooms[room].isGameOver=req.body.isGameOver;
     rooms[room].message=req.body.message;
@@ -149,6 +154,8 @@ router.post('/:room/reset',(req,res,next)=>{
         rooms[room].board=Array.from({ length: grid}, () => Array(grid).fill(null));
         rooms[room].currentPlayer='black';
         rooms[room].isGameOver=false;
+        rooms[room].lastCell=rooms[room].newCell;
+        rooms[room].newCell={row:-1,col:-1};
         //rooms[room].player_color=['',''];
         rooms[room].player_info[rooms[room].players[0]+'-c']='';
         rooms[room].player_info[rooms[room].players[1]+'-c']='';
@@ -170,7 +177,13 @@ router.post('/:room/leave',(req,res,next)=>{
     rooms[room].removePlayer(leave_user);
     res.status(204).end();
 });
-
+//ルーム削除
+router.post('/:room/delete-room',(req,res,next)=>{
+    const room=req.params.room;
+    rooms[room].removePlayer(rooms[room].players[0]);
+    rooms[room].removePlayer(rooms[room].players[1]);
+    res.status(204).end();
+});
 //sseで更新。プレイヤーの入室を伝える。
 router.get('/:room/sse_load',(req,res,next)=>{
     const room=req.params.room;
