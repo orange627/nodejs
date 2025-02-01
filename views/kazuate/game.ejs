@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
+  </head>
+  <body class="container">
+    <p>your player name: <%=login.name%></p>  
+    <!-- ルール説明表示ボタン -->
+    <button id="showRule" class="showRule">ルール確認</button>
+    <div id="ruleBox" class='ruleBox'>
+      <p>ルール説明</p>
+      <p>各自で数字を決めて、互いの数字を当て合うゲームです。数字を当てられたら負けとなり、最後まで当てられなかった人の勝ちです。</p>
+      <p>最初に重複のありなしを選択し、数字の桁数を入力します。</p>
+      <p>次に自分の数字を入力します。全員が入力し終わったら、数を順番に当て合います。</p>
+      <p>推測した数字を入力すると、自分以外の人の数字において2つの値(a,b)が表示されます。</p>
+      <p>a: 相手の数字において、数字と位置があっている個数</p>
+      <p>b: 相手の数字において、数字があっているが、位置があっていない個数</p>
+      <p><br>例) 1234に対して1356と推測した場合: 1,1</p>
+      <p>1は数字と位置があっているためa=1。3は数字はあっているが位置が異なるためb=1。</p>
+      <p><br>例) 1123に対して0111と推測した場合: 1,1</p>
+      <p>2桁目の1は数字と位置があっているためa=1。</p>
+      <p>3桁目と4桁目の1は数字はあっているが位置が異なる。しかし相手の数字において判定されていない残りの1は1桁目しかないためb=1</p>
+      <p><br>クリックすると閉じます。</p>
+    </div>
+
+
+  <!--メッセージを表示-->
+  <h1><div class="message"></div></h1>
+  <!-- 答えと予測の数字を入力-->
+  <input type="number" id="guessInput">
+  <button id="guessButton">入力</button>
+  <!-- 重複選択ボタン-->
+  <label for="overlap">重複</label>
+  <select id="overlap">
+    <option value="off">なし</option>
+    <option value="on">あり</option>
+  </select>
+  <!--ここに答えと予測の数字-->
+  <div class="guessArea" id="guessArea"></div>
+
+  <!-- リセットボタン-->
+  <button class="btn btn-primary reset-btn">リセット</button>
+
+
+
+  <!-- チャット欄 -->
+  <div class="chat-container">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input">
+          <input type="text" id="chatInput" for="sendButton" placeholder="メッセージを入力">
+          <button id="sendButton">送信</button>
+      </div>
+  </div>
+  <div class='footer'>
+    <!--ルーム退出ボタン。PCだと自動退出だが、スマホだとうまく退出できないため-->
+    <button id="delete-room">ルーム解散</button>
+  </div>
+    
+  </body>
+  
+  <script>
+    const routerURL='kazuate';
+class Data{
+    constructor(){
+        this.players=[];
+        this.currentPlayer='';
+        this.GameState='setting';//setting, decide, guess
+        this.message='自分の数字を決めてください';
+        this.player_info={};//[name]にguessデータ,overlapに重複
+        this.chat=[];
+    }
+  }
+const d=new Data();
+var secretNum='';
+    //再読込されても盤面を維持する
+    document.addEventListener('DOMContentLoaded', async function() {
+      //sseで更新。プレイヤーの入室を伝える。
+      await fetch("/"+routerURL+"/<%=room.name%>/sse_load");
+      sendChat("ルーム",'<%=login.name%>が入室しました。');
+      //再読込したときに自分の数字をローカルストレージから復元
+      secretNum=localStorage.getItem('secretNum');
+    });
+
+    // 入力制限を追加
+    const guessInput = document.getElementById('guessInput');
+    const guessButton = document.getElementById('guessButton');
+    // Enterキーを押したときにメッセージを送信
+    guessInput.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        guessButton.click();
+      }
+    });
+    // 重複チェック関数
+    function hasOverlap(str) {
+      const charSet = new Set();
+      for (let char of str) {
+          if (charSet.has(char)) {
+              return true;
+          }
+          charSet.add(char);
+      }
+      return false;
+    }
+  //数値を入力したとき
+  guessButton.addEventListener('click', function() {
+    d.message=document.querySelector('.message').innerText;
+    d.player_info['overlap']=document.getElementById('overlap').value;
+    var value=guessInput.value;
+
+    switch(d.GameState){
+          case 'decide':
+            if(d.player_info['overlap']=='off'){
+              if(hasOverlap(value)){
+                alert('数字が重複しています');
+                guessInput.value='';
+                return;
+              }
+            }
+            secretNum=value;
+            localStorage.setItem('secretNum', value);
+            d.player_info['<%=login.name%>-d']=true;
+            break;
+          case 'guess':
+            if(value.length!=d.player_info['digit-num']){
+                alert('桁数が一致していません');
+                guessInput.value='';
+                return;
+            }
+            break;
+        }
+    fetch('/'+routerURL+'/<%=room.name%>/update', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                data:d,
+                value:value,
+                name:'<%=login.name%>'
+              })
+    });
+            guessInput.value='';
+  });
+
+
+function update(data) {
+  //変数の更新
+  Object.assign(d,data);
+  addGuess();
+  updateGuess(d.player_info['digit-num']);
+  //変数の更新
+  switch(d.GameState){
+    //桁数を決める
+    case 'setting':
+      document.querySelector('.message').innerText='重複を選択し、桁数を入力してください';
+      //リセットボタン非表示
+      document.querySelector('.reset-btn').style.display='none';
+      //クライアント側の表示をリセット
+      const guessArea = document.getElementById('guessArea');
+      const guessDivs = guessArea.querySelectorAll('.guess');
+      guessDivs.forEach((guessDiv, i) => {
+        const ansNumDiv = guessDiv.querySelector('.ans-num');
+        const guessNumDiv = guessDiv.querySelector('.guess-num');
+        ansNumDiv.innerHTML='';
+        guessNumDiv.innerHTML='';
+      document.getElementById('overlap').disabled=false;
+      });
+      break;
+    case 'decide':
+      document.querySelector('.message').innerText='自分の数字を'+d.player_info['digit-num']+'桁で決めてください';
+      document.getElementById('overlap').value=d.player_info['overlap'];
+      document.getElementById('overlap').disabled=true;
+      break;
+    case 'guess':
+      if(d.currentPlayer=='<%=login.name%>'){
+        document.querySelector('.message').innerText='あなたの番です。相手の数字を予測してください。';
+      }else{
+        document.querySelector('.message').innerText=d.currentPlayer+'の番です。';
+      }
+      break;
+    case 'end':
+      //勝敗メッセージ
+      document.querySelector('.message').innerText=d.player_info['result'];
+      //リセットボタン表示
+      document.querySelector('.reset-btn').style.display='block';
+      break;
+  }
+  
+
+  //チャット欄更新
+  const chatMessages = document.getElementById('chatMessages');
+  let chatContent=data.chat.map(chat => `<strong>${chat.user}:</strong> ${chat.message}`).join('<br>');
+  chatMessages.innerHTML = chatContent;
+  chatMessages.scrollTop = chatMessages.scrollHeight; // 最新のメッセージにスクロール
+  document.getElementById('chatInput').value = ''; // 入力欄をクリア
+}
+
+//リセットボタン
+document.querySelector('.reset-btn').addEventListener('click', function() {
+  //サーバー側のリセット
+  fetch('/'+routerURL+'/<%=room.name%>/reset', {method: 'POST'});
+});
+
+//ルーム解散ボタン。スマホだと自動退出されないことがあるためルームを手動で削除。
+document.getElementById("delete-room").addEventListener('click', function() {
+  fetch('/'+routerURL+'/<%=room.name%>/delete-room', {method: 'POST'});
+  window.location.href = '/'+routerURL;
+});
+//ページを離れたとき、ルームから退出
+window.addEventListener('pagehide', (event) => {
+      const leave_user = "<%=login.name%>";
+      const url = "/"+routerURL+"/<%= room.name %>/leave";
+      // sendBeaconを使用してリクエストを送信
+      navigator.sendBeacon(url, leave_user);
+      sendChat('ルーム','<%=login.name%>が退出しました。');
+});
+
+//digitNum:桁数, playerNum:人数
+function addGuess(){
+  const playerNum=d.players.length;
+  const guessArea = document.getElementById('guessArea');
+  const guessLength=guessArea.getElementsByClassName('guess').length;
+  for (let i = guessLength; i < playerNum; i++) {
+
+      const guessDiv = document.createElement('div');
+      guessDiv.classList.add('guess');
+
+      const playerP = document.createElement('div');
+      playerP.textContent = d.players[i];
+      playerP.id=i+'-player';
+      guessDiv.appendChild(playerP);
+      
+      const ansNumDiv = document.createElement('div');
+      ansNumDiv.classList.add('ans-num');
+      guessDiv.appendChild(ansNumDiv);
+
+      const guessNumDiv = document.createElement('div');
+      guessNumDiv.classList.add('guess-num');
+      guessDiv.appendChild(guessNumDiv);
+
+      guessArea.appendChild(guessDiv);
+  }
+}
+function updateGuess(digitNum){
+  if(digitNum==null)return;
+  const playerNum=d.players.length;
+  const guessArea = document.getElementById('guessArea');
+  const guessDivs = guessArea.querySelectorAll('.guess');
+
+guessDivs.forEach((guessDiv, i) => {
+  const ansNumDiv = guessDiv.querySelector('.ans-num');
+  const guessNumDiv = guessDiv.querySelector('.guess-num');
+  const player=document.getElementById(i+'-player').textContent;
+  //数字の追加
+  if(ansNumDiv.querySelector('.digit')==null){
+    //桁数の分だけ追加
+    for (let j = 0; j < digitNum; j++) {
+          const digitDiv = document.createElement('div');
+          digitDiv.classList.add('digit');
+          digitDiv.id = `${i}-digit${j}`;
+          ansNumDiv.appendChild(digitDiv);
+      }
+  }else{
+    //数字の更新
+    for (let j = 0; j < digitNum; j++) {
+          const digitDiv = document.getElementById(`${i}-digit${j}`);
+          if(player=='<%=login.name%>'){
+            digitDiv.textContent = secretNum[j];
+          }else{
+            //他のプレイヤーが入力済みなら?を表示
+            if(d.player_info[player+'-d'])digitDiv.textContent = '?';
+          }
+          //負けた場合は数字を公開する
+          if(d.player_info[player+'-w']=='lose'){
+              digitDiv.textContent = d.player_info[player+'-s'][j];
+              digitDiv.style.backgroundColor = 'gray';
+            }
+            //勝った場合は数字を公開する
+            if(d.player_info[player+'-w']=='win'){
+              digitDiv.textContent = d.player_info[player+'-s'][j];
+              digitDiv.style.backgroundColor = 'yellow';
+            }
+      }
+    }
+    //推測された数字を追加
+    if (d.player_info[player + '-g']) {
+      guessNumDiv.innerHTML = d.player_info[player + '-g'].join('<br>');
+    }
+  });
+  
+  }
+
+  //SSEで更新
+  const eventSource = new EventSource('/'+routerURL+'/<%=room.name%>/update_sse');
+  eventSource.onmessage = function (event) {
+    try{
+      const data = JSON.parse(event.data);
+      update(data);
+      console.log('SSEを受信しました。');
+    }catch(err){
+      console.log('SSEが受信できませんでした');
+      console.log(err);
+    }
+  };
+  //日本語変換中か検知
+  let isComposing = false;
+  // Enterキーを押したときにメッセージを送信
+  document.getElementById('chatInput').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter'&&!isComposing) {
+        document.getElementById('sendButton').click();
+      }
+  });
+    // 日本語入力の開始と終了を追跡
+    document.getElementById('chatInput').addEventListener('compositionstart', function() {
+        isComposing = true;
+    });
+    document.getElementById('chatInput').addEventListener('compositionend', function() {
+        isComposing = false;
+    });
+  // チャットメッセージの送信
+  document.getElementById('sendButton').addEventListener('click', function() {
+    sendChat("<%=login.name%>",document.getElementById('chatInput').value);
+  });
+  //チャット送信関数
+  function sendChat(user,message){
+        if (message.trim() !== '') {
+            fetch('/'+routerURL+'/<%= room.name %>/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ user:user, message: message })
+            })
+        }
+  }
+  //ルール説明
+  document.getElementById("showRule").addEventListener("click", function() {
+  const ruleBox = document.getElementById("ruleBox");
+  ruleBox.style.display = "block"; // ルールを表示
+});
+
+document.getElementById("ruleBox").addEventListener("click", function() {
+  this.style.display = "none"; // クリックしたら非表示
+});
+  </script>
+
+<style>
+
+  .guessArea{
+    display: flex;
+    margin-top: 50px;
+  }
+  .guess{
+    margin-right: 50px;
+  }
+  .guess input{
+    width: calc(4 * 50px); 
+    margin-left:5px;
+  }
+          .ans-num {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 20px;
+      }
+      .ans-num .digit {
+          width: 50px;
+          height: 50px;
+          border: 1px solid #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          margin: 0 5px;
+      }
+.reset-btn {
+  display: none;
+}
+.chat-container {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  height: 500px;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+}
+.footer{
+bottom:0;
+padding-top: 200px;
+}
+.showRule{
+  position: absolute;
+  right: 0;
+}
+.ruleBox{
+  display: none;
+    position: fixed;
+    top: 10;
+    left: 10;
+    background-color: rgba(255, 255, 255, 0.95); /* 背景白（少し透過） */
+    align-items: center;
+    justify-content: center;
+    z-index: 1000; /* 他の要素の上に */
+    border: 1px solid black;
+    padding: 10px;
+}
+</style>
+</html>

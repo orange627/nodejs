@@ -11,6 +11,7 @@ var helloRouter = require('./routes/hello');
 var gameRouter = require('./routes/game');
 var boardsRouter = require('./routes/boards');
 var gomokuRouter = require('./routes/gomoku');
+var kazuateRouter = require('./routes/kazuate');
 var imageRouter = require('./routes/image');
 const session = require('express-session');
 
@@ -24,7 +25,7 @@ var session_opt = {
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 60 * 60 * 1000 }
+  cookie: { maxAge: 7*24*60 * 60 * 1000 }//1週間有効
 }
 app.use(session(session_opt));
 
@@ -41,6 +42,7 @@ app.use('/users', usersRouter);
 //app.use('/hello', helloRouter);
 //app.use('/game', gameRouter);
 app.use('/gomoku', gomokuRouter);
+app.use('/kazuate', kazuateRouter);
 app.use('/boards', boardsRouter);
 app.use('/image', imageRouter);
 

@@ -19,7 +19,7 @@ class Room{
     }
     addPlayer(player){
         if (this.players.length < 2) {
-            this.players.push(player);
+            if(this.players[0]!=player)this.players.push(player);
             return true;
         } else {
             console.log('Cannot add more players. The game already has 2 players.');

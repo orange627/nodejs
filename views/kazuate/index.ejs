@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
+  </head>
+  <body class="container">
+
+    <h1><%= title %></h1>
+    <p class="h4">Welcome to <%= login.name %></p>
+    <p class="h5"><%=message%></p>
+
+    <a href="/kazuate/<%=login.name%>">
+        <input type="submit" value="ルーム作成" class="btn btn-primary col-2">
+    </a>
+    <input value="ルーム一覧更新" class="btn btn-primary col-2" onclick="location.reload();">
+
+    <div class="input-group mb-3">
+        <input type="text" id="copyText" class="form-control">
+        <button class="btn btn-primary" id="copyButton">対戦リンクをコピー</button>
+    </div>
+    <%#作成されたルームを表示%>
+    <table class="table mt-5">
+        <thead>
+            <tr>
+                <th>ルーム名</th>
+                <th>参加者</th>
+            </tr>
+        </thead>
+        <%Object.entries(rooms).forEach(([key,value])=>{%>
+          <tr>
+            <th><a class="text-dark" href="/kazuate/<%=value.name%>"><%=value.name%>'s room</a></th>
+            <td class="col-5"><%=value.players%></td>
+          </tr>
+        <%}); %>
+    </table>
+
+  </body>
+  <script>
+    //対戦リンクを表示
+    document.getElementById('copyText').value=window.location.href+"/<%=login.name%>";
+    //対戦リンクコピー
+    document.getElementById('copyButton').addEventListener('click',function(){
+        const textBox=document.getElementById('copyText');
+        navigator.clipboard.writeText(textBox.value);
+    });
+  </script>
+</html>
