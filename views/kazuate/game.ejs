@@ -279,8 +279,14 @@ document.querySelector('.reset-btn').addEventListener('click', function() {
 
 //ルーム解散ボタン。スマホだと自動退出されないことがあるためルームを手動で削除。
 document.getElementById("delete-room").addEventListener('click', function() {
-  fetch('/'+routerURL+'/<%=room.name%>/delete-room', {method: 'POST'});
-  window.location.href = '/'+routerURL;
+  // ダイアログで確認
+  const confirmation = confirm('本当にルームを解散しますか？');
+  if (confirmation) {
+    fetch('/'+routerURL+'/<%=room.name%>/delete-room', {method: 'POST'})
+      .then(() => {
+        window.location.href = '/'+routerURL;
+      });
+  }
 });
 //ページを離れたとき、ルームから退出
 window.addEventListener('pagehide', (event) => {
@@ -468,8 +474,8 @@ document.getElementById("ruleBox").addEventListener("click", function() {
   border-bottom: 1px solid #ccc;
 }
 .footer{
+  position: fixed;
 bottom:0;
-padding-top: 200px;
 }
 .showRule{
   position: absolute;

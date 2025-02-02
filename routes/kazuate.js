@@ -239,7 +239,7 @@ function judge(ans,guess){
             //残りの位置があっていないが数字があっているものを探す
             for (let j = 0; j < ans.length; j++) {
                 //すでにカウント済みの場合はcheck[j]がtrue
-                if (ans[j] === guess[i]&&!check[j]) {
+                if (ans[i] === guess[j]&&!check[j]) {
                     check[j]=true;
                     numXNpos++;
                 }
