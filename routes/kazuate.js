@@ -156,16 +156,24 @@ router.post('/:room/update',(req,res,next)=>{
                         rooms[room].player_info[p + '-g'] = [];
                     }
                     if(p==name){
-                        rooms[room].player_info[p+'-g'].push('guess');
+                        if(value=='timeout'){
+                            rooms[room].player_info[p+'-g'].push('timeout');
+                        }else{
+                            rooms[room].player_info[p+'-g'].push('guess');
+                        }
                     }else{
-                        //他の人の推測された結果
-                        var result = judge(secretNumber[p], value);
-                        var guessNum = value + '&nbsp;&nbsp;&nbsp;' + result.numXpos + ',' + result.numXNpos;
-                        rooms[room].player_info[p+'-g'].push(guessNum);
-                        //4,0で数字を当てられた場合
-                        if(result.numXpos==rooms[room].player_info['digit-num']){
-                            rooms[room].player_info[p+'-w']='lose';
-                            rooms[room].player_info[p+'-s']=secretNumber[p];
+                        if(value!='timeout'){
+                            //他の人の推測された結果
+                            var result = judge(secretNumber[p], value);
+                            var guessNum = value + '&nbsp;&nbsp;&nbsp;' + result.numXpos + ',' + result.numXNpos;
+                            rooms[room].player_info[p+'-g'].push(guessNum);
+                            //4,0で数字を当てられた場合
+                            if(result.numXpos==rooms[room].player_info['digit-num']){
+                                rooms[room].player_info[p+'-w']='lose';
+                                rooms[room].player_info[p+'-s']=secretNumber[p];
+                            }
+                        }else{
+                            rooms[room].player_info[p+'-g'].push('-');
                         }
                     }
                     //loseの人数を数える
@@ -182,11 +190,6 @@ router.post('/:room/update',(req,res,next)=>{
                         }
                         rooms[room].GameState='end';
                     });
-                }
-                //ドローの場合
-                if(loseNum==rooms[room].players.length){
-                    rooms[room].GameState='end';
-                    rooms[room].player_info['result']='引き分けです';
                 }
                 //勝負がついていない場合は次の人のターンにする
                 var index=rooms[room].players.indexOf(rooms[room].currentPlayer);
@@ -249,7 +252,6 @@ function judge(ans,guess){
 //ゲームのリセット
 router.post('/:room/reset',(req,res,next)=>{
     try{
-        console.log('なんでエラー起きるの！？');
         const room=req.params.room;
         rooms[room].currentPlayer='';
         rooms[room].GameState='setting';

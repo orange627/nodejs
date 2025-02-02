@@ -12,7 +12,7 @@
     <div id="ruleBox" class='ruleBox'>
       <p>ルール説明</p>
       <p>各自で数字を決めて、互いの数字を当て合うゲームです。数字を当てられたら負けとなり、最後まで当てられなかった人の勝ちです。</p>
-      <p>最初に重複のありなしを選択し、数字の桁数を入力します。</p>
+      <p>最初に重複のありなし、制限時間を選択し、数字の桁数を入力します。</p>
       <p>次に自分の数字を入力します。全員が入力し終わったら、数を順番に当て合います。</p>
       <p>推測した数字を入力すると、自分以外の人の数字において2つの値(a,b)が表示されます。</p>
       <p>a: 相手の数字において、数字と位置があっている個数</p>
@@ -22,7 +22,8 @@
       <p><br>例) 1123に対して0111と推測した場合: 1,1</p>
       <p>2桁目の1は数字と位置があっているためa=1。</p>
       <p>3桁目と4桁目の1は数字はあっているが位置が異なる。しかし相手の数字において判定されていない残りの1は1桁目しかないためb=1</p>
-      <p><br>クリックすると閉じます。</p>
+      <p><br>一人プレイの場合はhttps://www.guessit.org/がオススメです。</p>
+      <p><br><br>クリックすると閉じます。</p>
     </div>
 
 
@@ -37,14 +38,23 @@
     <option value="off">なし</option>
     <option value="on">あり</option>
   </select>
+  <!-- 制限時間選択ボタン-->
+  <label for="limitTime">制限時間</label>
+  <select id="limitTime">
+    <option value="none">なし</option>
+    <option value="1">1分</option>
+    <option value="3">3分</option>
+    <option value="5" selected>5分</option>
+    <option value="10">10分</option>
+  </select>
+  <!-- 制限時間表示-->
+  <div id="timerDisplay"></div>
+
   <!--ここに答えと予測の数字-->
   <div class="guessArea" id="guessArea"></div>
 
   <!-- リセットボタン-->
   <button class="btn btn-primary reset-btn">リセット</button>
-
-
-
   <!-- チャット欄 -->
   <div class="chat-container">
       <div class="chat-messages" id="chatMessages"></div>
@@ -107,6 +117,7 @@ var secretNum='';
   guessButton.addEventListener('click', function() {
     d.message=document.querySelector('.message').innerText;
     d.player_info['overlap']=document.getElementById('overlap').value;
+    d.player_info['limitTime']=document.getElementById('limitTime').value;
     var value=guessInput.value;
 
     switch(d.GameState){
@@ -128,6 +139,8 @@ var secretNum='';
                 guessInput.value='';
                 return;
             }
+            //制限時間タイマーをリセット
+            limitTimer('stop');
             break;
         }
     fetch('/'+routerURL+'/<%=room.name%>/update', {
@@ -154,7 +167,7 @@ function update(data) {
   switch(d.GameState){
     //桁数を決める
     case 'setting':
-      document.querySelector('.message').innerText='重複を選択し、桁数を入力してください';
+      document.querySelector('.message').innerText='桁数を入力してください。重複、制限時間も選べます。';
       //リセットボタン非表示
       document.querySelector('.reset-btn').style.display='none';
       //クライアント側の表示をリセット
@@ -165,18 +178,27 @@ function update(data) {
         const guessNumDiv = guessDiv.querySelector('.guess-num');
         ansNumDiv.innerHTML='';
         guessNumDiv.innerHTML='';
-      document.getElementById('overlap').disabled=false;
       });
+      document.getElementById('overlap').disabled=false;
+      document.getElementById('limitTime').disabled=false;
+      localStorage.clear();
       break;
     case 'decide':
       document.querySelector('.message').innerText='自分の数字を'+d.player_info['digit-num']+'桁で決めてください';
       document.getElementById('overlap').value=d.player_info['overlap'];
       document.getElementById('overlap').disabled=true;
+      document.getElementById('limitTime').value=d.player_info['limitTime'];
+      document.getElementById('limitTime').disabled=true;
       break;
     case 'guess':
       if(d.currentPlayer=='<%=login.name%>'){
         document.querySelector('.message').innerText='あなたの番です。相手の数字を予測してください。';
+        limitTimer('start');
+        // タイマーの残り時間を1秒ごとに更新する
+        timerInterval = setInterval(() => limitTimer('running'), 1000);
       }else{
+        //制限時間タイマーをリセット
+        limitTimer('stop');
         document.querySelector('.message').innerText=d.currentPlayer+'の番です。';
       }
       break;
@@ -195,6 +217,58 @@ function update(data) {
   chatMessages.innerHTML = chatContent;
   chatMessages.scrollTop = chatMessages.scrollHeight; // 最新のメッセージにスクロール
   document.getElementById('chatInput').value = ''; // 入力欄をクリア
+}
+
+//制限時間
+var timer;
+var endTime;
+var timerInterval;
+function limitTimer(flag){
+  const limitT=d.player_info['limitTime'];
+  if(limitT=='none')return;
+  const timerDisplay = document.getElementById('timerDisplay');
+  switch(flag){
+      case 'start':
+        if(timer)break;
+        endTime=Date.now()+limitT*60*1000;
+        //制限時間になったらタイムアウトで次の人のターンにする
+        timer=setTimeout(()=>{
+          console.log('時間切れ');
+          fetch('/'+routerURL+'/<%=room.name%>/update', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    data:d,
+                    value:'timeout',
+                    name:'<%=login.name%>'
+                  })
+           });
+          clearTimeout(timer);
+          timer=null;
+        },limitT*60*1000);
+        break;
+      case 'running':
+        const now = Date.now();
+        const remainingTime = endTime - now;
+        if (remainingTime > 0) {
+            const minutes = Math.floor(remainingTime / 60000);
+            const seconds = Math.floor((remainingTime % 60000) / 1000);
+            timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        } else {
+            timerDisplay.textContent = '時間切れ';
+            clearInterval(timerInterval);
+        }
+        break;
+      case 'stop':
+        //制限時間内に回答したらタイマーを解除
+        clearTimeout(timer);
+        timer=null;
+        timerDisplay.textContent = '';
+        clearInterval(timerInterval);
+        break;
+    }
 }
 
 //リセットボタン
@@ -267,7 +341,7 @@ guessDivs.forEach((guessDiv, i) => {
     for (let j = 0; j < digitNum; j++) {
           const digitDiv = document.getElementById(`${i}-digit${j}`);
           if(player=='<%=login.name%>'){
-            digitDiv.textContent = secretNum[j];
+           if(secretNum) digitDiv.textContent = secretNum[j];
           }else{
             //他のプレイヤーが入力済みなら?を表示
             if(d.player_info[player+'-d'])digitDiv.textContent = '?';
