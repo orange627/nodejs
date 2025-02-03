@@ -242,6 +242,7 @@ function judge(ans,guess){
                 if (ans[i] === guess[j]&&!check[j]) {
                     check[j]=true;
                     numXNpos++;
+                    break;
                 }
             }
         }
