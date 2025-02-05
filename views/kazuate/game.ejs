@@ -9,7 +9,7 @@
     <p>your player name: <%=login.name%></p>  
     <!-- ルール説明表示ボタン -->
     <button id="showRule" class="showRule">ルール確認</button>
-    <div id="ruleBox" class='ruleBox'>
+    <div id="ruleBox" class='ruleBox' style="display: none;">
       <p>ルール説明</p>
       <p>各自で数字を決めて、互いの数字を当て合うゲームです。数字を当てられたら負けとなり、最後まで当てられなかった人の勝ちです。</p>
       <p>最初に重複のありなし、制限時間を選択し、数字の桁数を入力します。</p>
@@ -194,11 +194,7 @@ function update(data) {
       if(d.currentPlayer=='<%=login.name%>'){
         document.querySelector('.message').innerText='あなたの番です。相手の数字を予測してください。';
         limitTimer('start');
-        // タイマーの残り時間を1秒ごとに更新する
-        timerInterval = setInterval(() => limitTimer('running'), 1000);
       }else{
-        //制限時間タイマーをリセット
-        limitTimer('stop');
         document.querySelector('.message').innerText=d.currentPlayer+'の番です。';
       }
       break;
@@ -223,6 +219,7 @@ function update(data) {
 var timer;
 var endTime;
 var timerInterval;
+var pastPlayer;
 function limitTimer(flag){
   const limitT=d.player_info['limitTime'];
   if(limitT=='none')return;
@@ -245,9 +242,10 @@ function limitTimer(flag){
                     name:'<%=login.name%>'
                   })
            });
-          clearTimeout(timer);
-          timer=null;
+           limitTimer('stop')
         },limitT*60*1000);
+        // タイマーの残り時間を1秒ごとに更新する
+        timerInterval = setInterval(() => limitTimer('running'), 1000);
         break;
       case 'running':
         const now = Date.now();
@@ -263,10 +261,44 @@ function limitTimer(flag){
         break;
       case 'stop':
         //制限時間内に回答したらタイマーを解除
-        clearTimeout(timer);
-        timer=null;
-        timerDisplay.textContent = '';
-        clearInterval(timerInterval);
+        if(timer){
+          clearTimeout(timer);
+          timer=null;
+          timerDisplay.textContent = '';
+          clearInterval(timerInterval);
+          //相手の制限時間を計るためendtime代入
+          endTime=Date.now()+limitT*60*1000;
+          //相手のターンのカウント
+          timerInterval = setInterval(() => limitTimer('watch'), 1000);
+        }
+        break;
+      case 'watch':
+        if(d.GameState!='guess'){
+            clearInterval(timerInterval);
+            timerDisplay.textContent = '';
+            return;
+        }
+        //プレイヤーが変わったら時間リセット
+        if(pastPlayer!=d.currentPlayer){
+          pastPlayer=d.currentPlayer;
+          endTime=Date.now()+limitT*60*1000;
+          if(d.currentPlayer=='<%=login.name%>'){
+            clearInterval(timerInterval);
+            timerDisplay.textContent = '';
+            return;
+          }
+        }
+        //相手の残り時間を知るためにカウントダウンはする。自分のターンを経ないと表示されないのは仕様ということで。
+        const now2 = Date.now();
+        const remainingTime2 = endTime - now2;
+        if (remainingTime2 > 0) {
+            const minutes = Math.floor(remainingTime2 / 60000);
+            const seconds = Math.floor((remainingTime2 % 60000) / 1000);
+            timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        } else {
+            timerDisplay.textContent = '時間切れ';
+            clearInterval(timerInterval);
+        }
         break;
     }
 }
@@ -378,6 +410,10 @@ guessDivs.forEach((guessDiv, i) => {
     try{
       const data = JSON.parse(event.data);
       update(data);
+      //ルームが解散したら追い出される
+      if(data.player_info['bye']=='bye'){
+        window.location.href = '/'+routerURL;
+      }
       console.log('SSEを受信しました。');
     }catch(err){
       console.log('SSEが受信できませんでした');

@@ -295,6 +295,12 @@ router.post('/:room/delete-room',(req,res,next)=>{
         delete secretNumber[player];
         console.log('delete '+secretNumber[player]);
     });
+    // SSEでメンバーを追い出すメッセージを送信
+    rooms[room].player_info['bye']='bye';
+    if (update_sse_res[room]) {
+        update_sse_res[room].forEach(client => {
+        client.write(`data: ${JSON.stringify(rooms[room])}\n\n`);
+    });}
     rooms[room].deleteRoom();
     res.status(204).end();
 });
